@@ -4,7 +4,7 @@
 ;;
 ;; Author: Dimitri Fontaine <dim@tapoueh.org>
 ;; URL: http://tapoueh.org/
-;; Version: 0.2
+;; Version: 0.3
 ;; Created: 2011-01-21
 ;; Keywords: PostgreSQL PLpgSQL linum
 ;; Licence: WTFPL, grab your copy here: http://sam.zoy.org/wtfpl/
@@ -14,6 +14,18 @@
 ;; Implement a linum-mode hook to display PostgreSQL functions line numbers
 ;;
 (require 'linum)
+
+(defcustom pgsql-linum-format-before-9.0 nil
+  "Set to non-nil if you're using a PostgreSQL older than version 9.0.
+
+Line counting in stored procedures changed starting in 9.0, and
+pgsql-linum-format will adapt when given the information")
+
+(defun toggle-pgsql-linum-format-before-9.0 ()
+  "toggle the value of the boolean `pgsql-linum-format-before-9.0'"
+  (interactive)
+  (setq pgsql-linum-format-before-9.0
+	(not pgsql-linum-format-before-9.0)))
 
 (defun dim:pgsql-current-func ()
   "return first line number of current function, if any"
@@ -34,9 +46,10 @@
 	   (begin-line-num
 	    (when open-as-$$
 	      (unless (looking-at "\n") (forward-char))
-	      (if (string-match "begin" (current-word))
-		  (1- (line-number-at-pos))
-		(line-number-at-pos))))
+	      (if (or pgsql-linum-format-before-9.0
+		      (string-match "begin" (current-word)))
+	      	  (1- (line-number-at-pos))
+	      	(line-number-at-pos))))
 	   (close-as-$$
 	    (when open-as-$$
 	      (re-search-forward (format "\\$%s\\$" $$-name) nil t)
@@ -56,7 +69,6 @@
   (if (not (equal major-mode 'sql-mode))
       (format "%S" line)
     (save-excursion
-      ;; (goto-line line)
       (goto-char (point-min)) (forward-line (1- line))
       (let ((current-func-start (dim:pgsql-current-func)))
 	(if current-func-start
